@@ -1,37 +1,6 @@
 import inspect
 import argparse
 
-'''
-Documentation
-
-_argkit_help_msgs
-    (optional)
-    Help messages for parameters.
-    A dict whose keys are names of arguments and values are messages.
-
-_argkit_normal_map_parser_to_cls
-    (optional, automatically created if not exists)
-    A dict whose keys and values are 
-    names of arguments in the parser and arguments in the class.
-
-_argkit_ignore_map_parser_to_cls
-    (optional)
-    A dict containing arguments in parser and class to be ignored.
-    Usually they would be common parameters or those needed to be handled manually.
-    One parameter should be either ignored or automatically handled.
-    User should take their own response that 
-    all duplicated parameters among different classes are ignored.
-
-_argkit_manual_handler
-    (optional, function)
-    It looks like follows:
-        @staticmethod
-        def _argkit_manual_handler(parser): 
-            pass
-    It will be called after the automatical handling of the args.
-    Users should take their own response that 
-    all ignored args are properly handled.
-'''
 
 def cls_arg_to_parser(parser: argparse.ArgumentParser, cls: object):
 

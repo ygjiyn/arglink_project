@@ -7,7 +7,7 @@ name = "argkit"
 authors = [
   { name="Jiyuan Yang" },
 ]
-description = "A simple kit for handling arguments between parser and class definition."
+description = "A kit that automatically generates the parser arguments corresponding to a class and creates the instance of this class using the parsed arguments."
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
