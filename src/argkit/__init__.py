@@ -4,4 +4,4 @@ from argkit.core import (
     parser_arg_to_cls
 )
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
