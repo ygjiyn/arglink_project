@@ -2,7 +2,7 @@ import inspect
 import argparse
 
 
-def cls_arg_to_parser(parser: argparse.ArgumentParser, cls: object):
+def cls_arg_to_parser(cls: object, parser: argparse.ArgumentParser):
 
     has_help_msgs = hasattr(cls, '_argkit_help_msgs')
     has_normal_map_parser_to_cls = hasattr(cls, '_argkit_normal_map_parser_to_cls')
@@ -89,7 +89,7 @@ def get_map_parser_to_cls(cls: object):
     return map_parser_to_cls
 
 
-def parser_arg_to_cls(cls: object, args: argparse.Namespace | dict):
+def parser_arg_to_cls(args: argparse.Namespace | dict, cls: object):
     map_parser_to_cls = get_map_parser_to_cls(cls)
     if not isinstance(args, dict):
         args = vars(args)
