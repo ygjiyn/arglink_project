@@ -21,9 +21,12 @@ dependencies = []
 
 dynamic = ["version"]
 
-[tool.setuptools.dynamic]
-version = {attr = "argkit.__version__"}
+[project.scripts]
+a-feed = "argkit.static:feed"
 
 [project.urls]
 Homepage = "https://github.com/ygjiyn/argkit_project"
 Issues = "https://github.com/ygjiyn/argkit_project/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "argkit.__version__"}

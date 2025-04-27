@@ -1,5 +1,9 @@
 # The "argkit" Package
 
+## Note
+
+This package is still in the early stage of development.
+
 ## Introduction
 
 It is quite common to write a parser according to the definition of a class
@@ -99,7 +103,3 @@ to make further control.
 `cls_arg_to_parser` adds corresponding arguments to the parser based on the definition of the `__init__` method of the class.
 
 `parser_arg_to_cls` uses the parsed arguments to create an instance of the class.
-
-## Note
-
-This package is still in the early stage of development.
