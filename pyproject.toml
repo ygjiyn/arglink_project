@@ -21,9 +21,6 @@ dependencies = []
 
 dynamic = ["version"]
 
-[project.scripts]
-a-feed = "argkit.static:feed"
-
 [project.urls]
 Homepage = "https://github.com/ygjiyn/argkit_project"
 Issues = "https://github.com/ygjiyn/argkit_project/issues"
