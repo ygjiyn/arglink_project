@@ -33,13 +33,9 @@ to make further control.
     - Help messages for parameters.
     - A dict whose keys are names of arguments and values are messages.
 
-- `_argkit_normal_map_parser_to_cls`
-    - (optional, automatically created if not exists)
-    - A dict whose keys and values are names of arguments in the parser and arguments in the class.
-
-- `_argkit_ignore_map_parser_to_cls`
+- `_argkit_ignore_list`
     - (optional)
-    - A dict containing arguments in parser and class to be ignored.
+    - A list containing arguments in parser and class to be ignored.
     - Usually they would be common parameters or those needed to be handled manually.
     - One parameter should be either ignored or automatically handled.
     - User should take their own response that all duplicated parameters among different classes are ignored and properly handled.
@@ -54,6 +50,17 @@ to make further control.
         def _argkit_manual_handler(parser): 
             pass
     ```
+
+Besides, following class attributes will be created automatically:
+
+- `_argkit_map_parser_to_cls`
+    - (automatically created)
+    - A dict whose keys and values are names of arguments in the parser and arguments in the class.
+
+- `_argkit_args_for_add_augment`
+    - (automatically created)
+    - containing information used for the `add_argument` method.
+
 
 ## Usage
 
@@ -77,10 +84,7 @@ class TargetClass:
         'var_f': 'help message for var_f'
     }
 
-    _argkit_ignore_map_parser_to_cls = {
-        'ignore1': 'var_ignore_1',
-        'ignore2': 'var_ignore_2'
-    }
+    _argkit_ignore_list = ['var_ignore_1', 'var_ignore_2']
 
     @staticmethod
     def _argkit_manual_handler(parser): 
@@ -107,8 +111,8 @@ class TargetClass:
 The help message of the parser after calling the `cls_arg_to_parser` method looks like:
 
 ```
-usage:  [-h] --var-1 INT --var-2 FLOAT --var-3 STR [--var-a INT] [--var-b FLOAT] [--var-c STR]
-        [--var-d INT] [--var-e-store-false] [--var-f-store-true] --ignore1 IGNORE1 --ignore2 IGNORE2
+usage:  [-h] --var-1 INT --var-2 FLOAT --var-3 STR [--var-a INT] [--var-b FLOAT] [--var-c STR] [--var-d INT]
+        [--var-e-store-false] [--var-f-store-true] --ignore1 IGNORE1 --ignore2 IGNORE2
 
 options:
   -h, --help           show this help message and exit

@@ -3,12 +3,12 @@ import argparse
 
 
 def analyze_cls_arg(cls: object):
-    """
+    """\
     ## Analyze the arguments of a class definition
 
     This function will analyze the `__init__` method of the class `cls`
     and assign the following class attributes
-    - `_argkit_normal_map_parser_to_cls`: 
+    - `_argkit_map_parser_to_cls`: 
         a map from the variable name in results of `parser.parse_args()` to 
         the argument name in the `__init__` method
     - `_argkit_args_for_add_augment`:
@@ -19,15 +19,14 @@ def analyze_cls_arg(cls: object):
     If class attributes above are defined, they will be **ignored and overwriten**.
     """
     has_help_msgs = hasattr(cls, '_argkit_help_msgs')
-    has_ignore_map_parser_to_cls = hasattr(cls, '_argkit_ignore_map_parser_to_cls')
+    has_ignore_list = hasattr(cls, '_argkit_ignore_list')
 
-    cls._argkit_normal_map_parser_to_cls = {}
+    cls._argkit_map_parser_to_cls = {}
     cls._argkit_args_for_add_augment = {}
 
     sig = inspect.signature(cls.__init__)
     for p_obj in list(sig.parameters.values())[1:]:
-        if has_ignore_map_parser_to_cls and \
-            (p_obj.name in cls._argkit_ignore_map_parser_to_cls.values()):
+        if has_ignore_list and (p_obj.name in cls._argkit_ignore_list):
             continue
 
         this_args_for_add_augment_dict = {}
@@ -67,7 +66,7 @@ def analyze_cls_arg(cls: object):
                     help=this_param_help
                 )
 
-                cls._argkit_normal_map_parser_to_cls[
+                cls._argkit_map_parser_to_cls[
                     p_obj.name + '_store_true'] = p_obj.name
             else:
                 this_arg_name += '-store-false'
@@ -78,7 +77,7 @@ def analyze_cls_arg(cls: object):
                     help=this_param_help
                 )
 
-                cls._argkit_normal_map_parser_to_cls[
+                cls._argkit_map_parser_to_cls[
                     p_obj.name + '_store_false'] = p_obj.name
         else:
             if this_param_has_default:
@@ -97,7 +96,7 @@ def analyze_cls_arg(cls: object):
                     metavar=this_param_type.__name__.upper(),
                     help=this_param_help
                 )
-            cls._argkit_normal_map_parser_to_cls[p_obj.name] = p_obj.name
+            cls._argkit_map_parser_to_cls[p_obj.name] = p_obj.name
         
         cls._argkit_args_for_add_augment[p_obj.name] = this_args_for_add_augment_dict
 
@@ -112,25 +111,33 @@ def cls_arg_to_parser(cls: object, parser: argparse.ArgumentParser):
         cls._argkit_manual_handler(group)
 
 
-def get_map_parser_to_cls(cls: object):
-    has_normal_map_parser_to_cls = hasattr(cls, '_argkit_normal_map_parser_to_cls')
-    assert has_normal_map_parser_to_cls, \
-        'Attribute _argkit_normal_map_parser_to_cls is required.'
-    has_ignore_map_parser_to_cls = hasattr(cls, '_argkit_ignore_map_parser_to_cls')
-    map_parser_to_cls = {}
-    map_parser_to_cls.update(cls._argkit_normal_map_parser_to_cls)
-    if has_ignore_map_parser_to_cls:
-        map_parser_to_cls.update(cls._argkit_ignore_map_parser_to_cls)
-    return map_parser_to_cls
+def parser_arg_to_cls_arg_kw_dict(args: argparse.Namespace | dict, cls: object):
+    """\
+    ## Get the dict for creating cls instance
 
-
-def parser_arg_to_cls(args: argparse.Namespace | dict, cls: object):
+    This is useful when creating the instance of `cls` also needs other arguments.
+    
+    For example:
+    ```python
+    this_cls_args = parser_arg_to_cls_arg_kw_dict(args, cls)
+    obj = cls(extra_arg_1, extra_arg_2, **this_cls_args)
+    ```
+    """
     analyze_cls_arg(cls)
-    map_parser_to_cls = get_map_parser_to_cls(cls)
     if not isinstance(args, dict):
         args = vars(args)
     this_cls_args = {}
-    for parser_arg, cls_arg in map_parser_to_cls.items():
+    for parser_arg, cls_arg in cls._argkit_map_parser_to_cls.items():
         this_cls_args[cls_arg] = args[parser_arg]
+    return this_cls_args
+
+
+def parser_arg_to_cls(args: argparse.Namespace | dict, cls: object):
+    has_ignore_list = hasattr(cls, '_argkit_ignore_list')
+    assert not has_ignore_list, \
+        ('This class contains _argkit_ignore_list, '
+         'consider using parser_arg_to_cls_arg_kw_dict and '
+         'handle the ignored arguments manually.')
+    this_cls_args = parser_arg_to_cls_arg_kw_dict(args, cls)
     return cls(**this_cls_args)
 
