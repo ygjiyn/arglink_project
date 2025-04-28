@@ -23,7 +23,6 @@ dynamic = ["version"]
 
 [project.scripts]
 kit1 = "argkit.static:transfer_1"
-kit2 = "argkit.static:transfer_2"
 
 [project.urls]
 Homepage = "https://github.com/ygjiyn/argkit_project"
