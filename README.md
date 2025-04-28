@@ -25,6 +25,9 @@ each argument, except the first `self` argument, should either
 
 Only `int`, `float`, `bool`, and `str` are supported.
 
+Only POSITIONAL_OR_KEYWORD parameters are supported, 
+and there should be no `*`, `/`, `*args`, `**kwargs` in the definition of the `__init__` method.
+
 Users could also define the following optional class variables and functions
 to make further control.
 
@@ -35,7 +38,7 @@ to make further control.
 
 - `_argkit_ignore_list`
     - (optional)
-    - A list containing arguments in parser and class to be ignored.
+    - A list containing arguments in the definition of the `__init__` method to be ignored.
     - Usually they would be common parameters or those needed to be handled manually.
     - One parameter should be either ignored or automatically handled.
     - User should take their own response that all duplicated parameters among different classes are ignored and properly handled.
