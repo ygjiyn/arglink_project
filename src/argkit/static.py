@@ -1,9 +1,11 @@
 import argparse
 import re
 
-def modify_pattern_feed():
+def transfer_1():
     parser = argparse.ArgumentParser(
-        description='String annotations are not supported')
+        description=('Transfer a parameter definition string param, ... to '
+                     'param=(prefix)param(suffix), ... '
+                     'String annotations are not supported'))
     parser.add_argument('-p', '--prefix', type=str, default='', metavar='STR')
     parser.add_argument('-s', '--suffix', type=str, default='', metavar='STR')
     parser.add_argument('-i', '--input-file', type=str, 

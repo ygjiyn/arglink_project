@@ -7,7 +7,7 @@ name = "argkit"
 authors = [
   { name="Jiyuan Yang" },
 ]
-description = "A kit that automatically generates the parser arguments corresponding to a class and creates the instance of this class using the parsed arguments."
+description = "A simple kit that automatically generates the parser arguments of a class and creates the instance of this class using the parsed arguments."
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -22,7 +22,7 @@ dependencies = []
 dynamic = ["version"]
 
 [project.scripts]
-argkit_feed = "argkit.static:modify_pattern_feed"
+kit1 = "argkit.static:transfer_1"
 
 [project.urls]
 Homepage = "https://github.com/ygjiyn/argkit_project"
