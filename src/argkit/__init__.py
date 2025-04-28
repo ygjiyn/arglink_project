@@ -5,4 +5,4 @@ from argkit.runtime import (
     parser_arg_to_cls
 )
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
