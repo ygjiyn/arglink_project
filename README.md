@@ -95,6 +95,8 @@ making string-based transformations are also provided in this package.
 ## Example
 
 ```python
+from argkit import attach_argkit_meta_info
+
 class TargetClass:
 
     @attach_argkit_meta_info(obj_dict={
@@ -125,7 +127,7 @@ class TargetClass:
         pass
 ```
 
-Using functions in this package:
+Call `add_callable_args_to_parser_args`:
 
 ```python
 import argparse
