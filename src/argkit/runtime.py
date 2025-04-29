@@ -2,7 +2,28 @@ import inspect
 import argparse
 
 
-def analyze_callable_args(obj: object, obj_dict: dict, skip_first: bool):
+def attach_argkit_meta_info(obj_dict: dict, skip_first: bool):
+    '''\
+    ## Add attributes of meta information to a callable object
+
+    - `obj_dict`
+        For the most simple case, it could be an empty dict `{}`.
+        It contains all optional information used by functions in `argkit`.
+    - others
+        Required information.
+        - `skip_first`
+            Whether skip the first argument or not.
+            If the callable `obj` is a method or a class method of a class,
+            set `skip_first` to `True` to skip the first argument (`self` or `cls`).
+    '''
+    def decorator(obj: object):
+        obj._argkit_obj_dict = obj_dict
+        obj._argkit_skip_first = skip_first
+        return obj
+    return decorator
+
+
+def analyze_callable_args(obj: object):
     """\
     ## Analyze the arguments of the definition of a callable
 
@@ -30,6 +51,9 @@ def analyze_callable_args(obj: object, obj_dict: dict, skip_first: bool):
     
     If keys above exists in `obj_dict`, they will be **overwriten**.
     """
+    obj_dict = obj._argkit_obj_dict
+    skip_first = obj._argkit_skip_first
+
     has_help_msgs = 'help_msgs' in obj_dict.keys()
     has_ignore_list = 'ignore_list' in obj_dict.keys()
 
@@ -118,20 +142,16 @@ def analyze_callable_args(obj: object, obj_dict: dict, skip_first: bool):
             this_args_for_add_augment_dict
 
 
-def add_callable_args_to_parser_args(obj: object, obj_dict: dict, skip_first: bool, 
-                                     parser: argparse.ArgumentParser):
-    analyze_callable_args(obj, obj_dict, skip_first)
-    has_manual_handler = 'manual_handler' in obj_dict.keys()
+def add_callable_args_to_parser_args(obj: object, parser: argparse.ArgumentParser):
+    analyze_callable_args(obj)
+    obj_dict = obj._argkit_obj_dict
 
     group = parser.add_argument_group(f'arguments for "{obj.__qualname__}"')
     for v in obj_dict['dict_callable_args_to_args_for_add_augment'].values():
         group.add_argument(*v['args'], **v['kwargs'])
-    if has_manual_handler:
-        obj_dict['manual_handler'](group)
 
 
-def transfer_parser_args_to_callable_kw_dict(args: argparse.Namespace | dict, 
-                                             obj: object, obj_dict: dict, skip_first: bool):
+def transfer_parser_args_to_callable_kw_dict(args: argparse.Namespace | dict, obj: object):
     """\
     ## Get the kw dict for calling the callable from parsed args
     
@@ -141,7 +161,9 @@ def transfer_parser_args_to_callable_kw_dict(args: argparse.Namespace | dict,
     obj(extra_arg_1, extra_arg_2, **callable_kw_dict)
     ```
     """
-    analyze_callable_args(obj, obj_dict, skip_first)
+    analyze_callable_args(obj)
+    obj_dict = obj._argkit_obj_dict
+
     if not isinstance(args, dict):
         args = vars(args)
     callable_kw_dict = {}
