@@ -1,9 +1,7 @@
 from argkit.runtime import (
-    analyze_cls_arg, 
-    cls_arg_to_parser, 
-    get_map_parser_to_cls, 
-    parser_arg_to_cls_arg_kw_dict, 
-    parser_arg_to_cls
+    analyze_callable_args, 
+    add_callable_args_to_parser_args,
+    transfer_parser_args_to_callable_kw_dict
 )
 
-__version__ = '0.0.10'
+__version__ = '0.1.0'

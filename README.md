@@ -3,75 +3,89 @@
 
 ## Introduction
 
-It is quite common to write a parser according to the definition of a class
-and use this parser to obtain arguments to create an instance of this class.
+It is quite common to write a parser according to the definition a callable
+and use this parser to obtain arguments to call this callable.
 
 The `argkit` provides tools for connecting arguments managed by a parser in `argparse` 
-and those declared in the `__init__` method of a class.
+and arguments declared in the definition of a callable, 
+which eliminates the need for manually maintaining the parser and the definition of the callable.
 
-Instead of manually maintaining the parser and class definition, 
-it automatically generates the parser arguments of a class 
-and creates the instance of this class using the parsed arguments.
 
 ## Preparation
 
 Inside the `argkit` package, 
-it uses the `inspect` module to analysis the definition of a class.
+it uses the `inspect` module to analysis the callable.
 
-To use `argkit`, in the definition of the `__init__` method of the target class,
-each argument, except the first `self` argument, should either
+To use `argkit`, in the definition the callable,
+each argument should either
 - be assigned to a default value other than `None`, or
-- has a type annotation.
+- have a type annotation.
+
+If the callable is a method in a class (e.g., the `__init__` method), 
+or a class method (e.g., those decorated by `@classmethod`), 
+setting the `skip_first` option to `True` in the provided functions 
+could skip the first argument (e.g., `self`, `cls`).
 
 Only `int`, `float`, `bool`, and `str` are supported.
 
 Only POSITIONAL_OR_KEYWORD parameters are supported, 
-and there should be no `*`, `/`, `*args`, `**kwargs` in the definition of the `__init__` method.
+and there should be no `*`, `/`, `*args`, `**kwargs` in the definition.
 
-Users could also define the following optional class variables and functions
+For each callable, users should maintain a dict, named `obj_dict`, a place to
+store the results of analysis conducted by this package, 
+as well as some user options.
+
+A minimal `obj_dict` is just an empty dict `{}`.
+
+Users could include following items in the `obj_dict`
 to make further control.
+Do not create any of those keys if its corresponding value is empty.
 
-- `_argkit_help_msgs`
+- `help_msgs`
     - (optional)
     - Help messages for parameters.
     - A dict whose keys are names of arguments and values are messages.
 
-- `_argkit_ignore_list`
+- `ignore_list`
     - (optional)
-    - A list containing arguments in the definition of the `__init__` method to be ignored.
+    - A list containing arguments in the definition of the callable to be ignored.
     - Usually they would be common parameters or those needed to be handled manually.
-    - One parameter should be either ignored or automatically handled.
-    - User should take their own response that all duplicated parameters among different classes are ignored and properly handled.
 
-- `_argkit_manual_handler`
+- `manual_handler`
     - (optional, function)
     - It will be called after the automatical handling of the args.
-    - Users should take their own response that all ignored args are properly handled.
-    - Its definition looks like follows:
+    - It accepts a single argument `parser` and has no return values.
+    - For example, `def manual_handler(parser): pass`.
+
+Besides, following keys will be added to the `obj_dict` 
+during the analysis of the callable:
+
+- `dict_callable_args_to_parser_args`: 
+    - Keys: names of arguments in the definition of the callable. 
+    - Values: names of attributes in the return value of `parser.parse_args()`,
+    i.e., names of attributes of the `argparse.Namespace` object.
+
+- `dict_callable_args_to_args_for_add_augment`:
+    - Keys: names of arguments in the definition of the callable. 
+    - Values: dicts used for the `parser.add_augment` method, each of which is
     ```python
-        @staticmethod
-        def _argkit_manual_handler(parser): 
-            pass
+    {
+        'args': ['--arg-name'], 
+        'kwargs': {'name': 'value', ...}
+    }
     ```
-
-Besides, following class attributes will be created automatically:
-
-- `_argkit_map_parser_to_cls`
-    - (automatically created)
-    - A dict whose keys and values are names of arguments in the parser and arguments in the class.
-
-- `_argkit_args_for_add_augment`
-    - (automatically created)
-    - containing information used for the `add_argument` method.
+    
+If two keys above exists in `obj_dict`, they will be **overwriten**.
 
 
 ## Usage
 
 The core functions are:
 
-- `cls_arg_to_parser` adds corresponding arguments to the parser based on the definition of the `__init__` method of the class.
-
-- `parser_arg_to_cls` uses the parsed arguments to create an instance of the class.
+- `analyze_callable_args`: Analyze the arguments of the definition of a callable.
+- `add_callable_args_to_parser_args`: Add parser arguments 
+    according to the definition of a callable.
+- `transfer_parser_args_to_callable_kw_dict`: Get the kw dict for calling the callable from parsed args.
 
 Besides, some command line tools prefixed with "kit" (e.g. `kit1`, ...)
 making string-based transformations are also provided in this package.
@@ -79,21 +93,25 @@ making string-based transformations are also provided in this package.
 ## Example
 
 ```python
-class TargetClass:
 
-    _argkit_help_msgs = {
+def argkit_manual_handler_target_class_init(parser): 
+    parser.add_argument('--ignore1', type=int, required=True)
+    parser.add_argument('--ignore2', type=int, required=True)
+
+argkit_obj_dict_target_class_init = {
+    'help_msgs': {
         'var_1': 'help message for var_1',
         'var_a': 'help message for var_a',
         'var_f': 'help message for var_f'
-    }
+    },
+    'ignore_list': [
+        'var_ignore_1', 
+        'var_ignore_2'
+    ],
+    'manual_handler': argkit_manual_handler_target_class_init
+}
 
-    _argkit_ignore_list = ['var_ignore_1', 'var_ignore_2']
-
-    @staticmethod
-    def _argkit_manual_handler(parser): 
-        parser.add_argument('--ignore1', type=int, required=True)
-        parser.add_argument('--ignore2', type=int, required=True)
-
+class TargetClass:
     def __init__(
         self,
         var_ignore_1,
@@ -111,16 +129,34 @@ class TargetClass:
         pass
 ```
 
-The help message of the parser after calling the `cls_arg_to_parser` method looks like:
+Using functions in this package:
+
+```python
+import argparse
+from argkit import add_callable_args_to_parser_args
+
+parser = argparse.ArgumentParser()
+
+add_callable_args_to_parser_args(
+    obj=TargetClass.__init__, 
+    obj_dict=argkit_obj_dict_target_class_init,
+    skip_first=True,
+    parser=parser)
+
+parser.print_help()
+```
+
+Help message:
 
 ```
-usage:  [-h] --var-1 INT --var-2 FLOAT --var-3 STR [--var-a INT] [--var-b FLOAT] [--var-c STR] [--var-d INT]
-        [--var-e-store-false] [--var-f-store-true] --ignore1 IGNORE1 --ignore2 IGNORE2
+usage: argkit_example.py [-h] --var-1 INT --var-2 FLOAT --var-3 STR [--var-a INT] [--var-b FLOAT] [--var-c STR]
+                         [--var-d INT] [--var-e-store-false] [--var-f-store-true] --ignore1 IGNORE1
+                         --ignore2 IGNORE2
 
 options:
   -h, --help           show this help message and exit
 
-arguments for class "TargetClass":
+arguments for "TargetClass.__init__":
   --var-1 INT          help message for var_1
   --var-2 FLOAT
   --var-3 STR

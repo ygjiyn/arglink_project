@@ -2,59 +2,74 @@ import inspect
 import argparse
 
 
-def analyze_cls_arg(cls: object):
+def analyze_callable_args(obj: object, obj_dict: dict, skip_first: bool):
     """\
-    ## Analyze the arguments of a class definition
+    ## Analyze the arguments of the definition of a callable
 
-    This function will analyze the `__init__` method of the class `cls`
-    and assign the following class attributes
-    - `_argkit_map_parser_to_cls`: 
-        a map from the variable name in results of `parser.parse_args()` to 
-        the argument name in the `__init__` method
-    - `_argkit_args_for_add_augment`:
-        a dict, whose keys are arguments name in the `__init__` method and 
-        values are a dict:
-        {'args': ['--arg-name'], 'kwargs': {'name': 'value', ...}}
+    This function will analyze the definition of a callable and 
+    add the following two keys to `obj_dict`.
 
-    If class attributes above are defined, they will be **ignored and overwriten**.
+    If the callable `obj` is a method or a class method of a class,
+    set `skip_first` to `True` to skip the first argument (`self` or `cls`).
+
+    Keys added to `obj_dict`:
+
+    - `dict_callable_args_to_parser_args`: 
+        Keys: names of arguments in the definition of the callable. 
+        Values: names of attributes in the return value of `parser.parse_args()`,
+        i.e., names of attributes of the `argparse.Namespace` object.
+    - `dict_callable_args_to_args_for_add_augment`:
+        Keys: names of arguments in the definition of the callable. 
+        Values: dicts used for the `parser.add_augment` method, each of which is
+        ```python
+        {
+            'args': ['--arg-name'], 
+            'kwargs': {'name': 'value', ...}
+        }
+        ```
+    
+    If keys above exists in `obj_dict`, they will be **overwriten**.
     """
-    has_help_msgs = hasattr(cls, '_argkit_help_msgs')
-    has_ignore_list = hasattr(cls, '_argkit_ignore_list')
+    has_help_msgs = 'help_msgs' in obj_dict.keys()
+    has_ignore_list = 'ignore_list' in obj_dict.keys()
 
-    cls._argkit_map_parser_to_cls = {}
-    cls._argkit_args_for_add_augment = {}
+    obj_dict['dict_callable_args_to_parser_args'] = {}
+    obj_dict['dict_callable_args_to_args_for_add_augment'] = {}
 
-    sig = inspect.signature(cls.__init__)
-    for p_obj in list(sig.parameters.values())[1:]:
-        if has_ignore_list and (p_obj.name in cls._argkit_ignore_list):
+    sig = inspect.signature(obj)
+
+    start_from = 1 if skip_first else 0
+
+    for param in list(sig.parameters.values())[start_from:]:
+        
+        if has_ignore_list and (param.name in obj_dict['ignore_list']):
             continue
 
         this_args_for_add_augment_dict = {}
 
-        assert p_obj.kind == p_obj.POSITIONAL_OR_KEYWORD, \
-            (f'Error with {p_obj.name}, '
+        assert param.kind == param.POSITIONAL_OR_KEYWORD, \
+            (f'Error with {param.name}, '
              'only POSITIONAL_OR_KEYWORD parameters are supported.')
         
-        this_param_has_default = p_obj.default is not p_obj.empty
+        this_param_has_default = param.default is not param.empty
 
-        if this_param_has_default and p_obj.default is not None:
-            this_param_type = type(p_obj.default)
-            this_param_default_value = p_obj.default
+        if this_param_has_default and param.default is not None:
+            this_param_type = type(param.default)
+            this_param_default_value = param.default
         else:
-            assert p_obj.annotation is not p_obj.empty, \
-                f'The annotation of {p_obj.name} should not be empty.'
-            assert isinstance(p_obj.annotation, type), \
-                f'The annotation of {p_obj.name} should be a type annotation.'
-            this_param_type = p_obj.annotation
+            assert param.annotation is not param.empty, \
+                f'The annotation of {param.name} should not be empty.'
+            assert isinstance(param.annotation, type), \
+                f'The annotation of {param.name} should be a type annotation.'
+            this_param_type = param.annotation
             this_param_default_value = None
 
         assert this_param_type in (int, float, bool, str), \
-            f'Error with {p_obj.name}, only int, float, bool, str are supported.'
+            f'Error with {param.name}, only int, float, bool, str are supported.'
         
-        this_arg_name = '--' + p_obj.name.replace('_', '-')
+        this_arg_name = '--' + param.name.replace('_', '-')
 
-        this_param_help = \
-            cls._argkit_help_msgs.get(p_obj.name, '') if has_help_msgs else ''
+        this_param_help = obj_dict['help_msgs'].get(param.name, '') if has_help_msgs else ''
         
         if this_param_type == bool:
             if this_param_default_value == False or this_param_default_value is None:
@@ -66,8 +81,8 @@ def analyze_cls_arg(cls: object):
                     help=this_param_help
                 )
 
-                cls._argkit_map_parser_to_cls[
-                    p_obj.name + '_store_true'] = p_obj.name
+                obj_dict['dict_callable_args_to_parser_args'][param.name] = \
+                    param.name + '_store_true'
             else:
                 this_arg_name += '-store-false'
 
@@ -77,8 +92,8 @@ def analyze_cls_arg(cls: object):
                     help=this_param_help
                 )
 
-                cls._argkit_map_parser_to_cls[
-                    p_obj.name + '_store_false'] = p_obj.name
+                obj_dict['dict_callable_args_to_parser_args'][param.name] = \
+                    param.name + '_store_false'
         else:
             if this_param_has_default:
                 this_args_for_add_augment_dict['args'] = [this_arg_name]
@@ -96,48 +111,41 @@ def analyze_cls_arg(cls: object):
                     metavar=this_param_type.__name__.upper(),
                     help=this_param_help
                 )
-            cls._argkit_map_parser_to_cls[p_obj.name] = p_obj.name
+            obj_dict['dict_callable_args_to_parser_args'][param.name] = \
+                param.name
         
-        cls._argkit_args_for_add_augment[p_obj.name] = this_args_for_add_augment_dict
+        obj_dict['dict_callable_args_to_args_for_add_augment'][param.name] = \
+            this_args_for_add_augment_dict
 
 
-def cls_arg_to_parser(cls: object, parser: argparse.ArgumentParser):
-    analyze_cls_arg(cls)
-    has_manual_handler = callable(getattr(cls, '_argkit_manual_handler', None))
-    group = parser.add_argument_group(f'arguments for class "{cls.__name__}"')
-    for v in cls._argkit_args_for_add_augment.values():
+def add_callable_args_to_parser_args(obj: object, obj_dict: dict, skip_first: bool, 
+                                     parser: argparse.ArgumentParser):
+    analyze_callable_args(obj, obj_dict, skip_first)
+    has_manual_handler = 'manual_handler' in obj_dict.keys()
+
+    group = parser.add_argument_group(f'arguments for "{obj.__qualname__}"')
+    for v in obj_dict['dict_callable_args_to_args_for_add_augment'].values():
         group.add_argument(*v['args'], **v['kwargs'])
     if has_manual_handler:
-        cls._argkit_manual_handler(group)
+        obj_dict['manual_handler'](group)
 
 
-def parser_arg_to_cls_arg_kw_dict(args: argparse.Namespace | dict, cls: object):
+def transfer_parser_args_to_callable_kw_dict(args: argparse.Namespace | dict, 
+                                             obj: object, obj_dict: dict, skip_first: bool):
     """\
-    ## Get the dict for creating cls instance
-
-    This is useful when creating the instance of `cls` also needs other arguments.
+    ## Get the kw dict for calling the callable from parsed args
     
     For example:
     ```python
-    this_cls_args = parser_arg_to_cls_arg_kw_dict(args, cls)
-    obj = cls(extra_arg_1, extra_arg_2, **this_cls_args)
+    callable_kw_dict = transfer_parser_args_to_callable_kw_dict(args, obj, obj_dict, skip_first)
+    obj(extra_arg_1, extra_arg_2, **callable_kw_dict)
     ```
     """
-    analyze_cls_arg(cls)
+    analyze_callable_args(obj, obj_dict, skip_first)
     if not isinstance(args, dict):
         args = vars(args)
-    this_cls_args = {}
-    for parser_arg, cls_arg in cls._argkit_map_parser_to_cls.items():
-        this_cls_args[cls_arg] = args[parser_arg]
-    return this_cls_args
-
-
-def parser_arg_to_cls(args: argparse.Namespace | dict, cls: object):
-    has_ignore_list = hasattr(cls, '_argkit_ignore_list')
-    assert not has_ignore_list, \
-        ('This class contains _argkit_ignore_list, '
-         'consider using parser_arg_to_cls_arg_kw_dict and '
-         'handle the ignored arguments manually.')
-    this_cls_args = parser_arg_to_cls_arg_kw_dict(args, cls)
-    return cls(**this_cls_args)
+    callable_kw_dict = {}
+    for callable_arg, parser_arg in obj_dict['dict_callable_args_to_parser_args'].items():
+        callable_kw_dict[callable_arg] = args[parser_arg]
+    return callable_kw_dict
 
