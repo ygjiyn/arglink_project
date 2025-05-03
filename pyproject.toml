@@ -22,7 +22,8 @@ dependencies = []
 dynamic = ["version"]
 
 [project.scripts]
-kit1 = "argkit.static:transfer_1"
+kit1 = "argkit.cli:transfer_single"
+kit2 = "argkit.cli:transfer_double"
 
 [project.urls]
 Homepage = "https://github.com/ygjiyn/argkit_project"

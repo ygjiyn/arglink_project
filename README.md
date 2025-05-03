@@ -146,8 +146,8 @@ parser.print_help()
 Help message:
 
 ```
-usage: argkit_example.py [-h] --var-1 INT --var-2 FLOAT --var-3 STR [--var-a INT] [--var-b FLOAT] [--var-c STR]
-                         [--var-d INT] [--var-e-store-false] [--var-f-store-true]
+usage: argkit_example.py [-h] --var-1 INT --var-2 FLOAT --var-3 STR [--var-a INT] [--var-b FLOAT] [--var-c STR] [--var-d INT] [--var-e-store-false]
+                         [--var-f-store-true]
 
 options:
   -h, --help           show this help message and exit
@@ -156,10 +156,10 @@ arguments for "TargetClass.__init__":
   --var-1 INT          help message for var_1
   --var-2 FLOAT
   --var-3 STR
-  --var-a INT          help message for var_a
-  --var-b FLOAT
-  --var-c STR
-  --var-d INT
+  --var-a INT          (default: 1) help message for var_a
+  --var-b FLOAT        (default: 1.1)
+  --var-c STR          (default: '')
+  --var-d INT          (default: None)
   --var-e-store-false
   --var-f-store-true   help message for var_f
 ```

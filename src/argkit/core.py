@@ -9,6 +9,18 @@ def attach_argkit_meta_info(obj_dict: dict, skip_first: bool):
     - `obj_dict`
         For the most simple case, it could be an empty dict `{}`.
         It contains all optional information used by functions in `argkit`.
+        It could contain the following optional items:
+
+        - `help_msgs`
+            - (optional)
+            - Help messages for parameters.
+            - A dict whose keys are names of arguments and values are messages.
+
+        - `ignore_list`
+            - (optional)
+            - A list containing arguments in the definition of the callable to be ignored.
+            - Usually, it could contain those arguments which needed to be handled manually.
+
     - others
         Required information.
         - `skip_first`
@@ -16,7 +28,7 @@ def attach_argkit_meta_info(obj_dict: dict, skip_first: bool):
             If the callable `obj` is a method or a class method of a class,
             set `skip_first` to `True` to skip the first argument (`self` or `cls`).
     '''
-    def decorator(obj: object):
+    def decorator(obj):
         obj._argkit_obj_dict = obj_dict
         obj._argkit_skip_first = skip_first
         return obj
@@ -125,16 +137,15 @@ def analyze_callable_args(obj: object):
                     type=this_param_type, 
                     default=this_param_default_value,
                     metavar=this_param_type.__name__.upper(),
-                    help=this_param_help
-                )
+                    help=(f'(default: {repr(this_param_default_value)}) ' + 
+                          this_param_help))
             else:
                 this_args_for_add_augment_dict['args'] = [this_arg_name]
                 this_args_for_add_augment_dict['kwargs'] = dict(
                     type=this_param_type, 
                     required=True,
                     metavar=this_param_type.__name__.upper(),
-                    help=this_param_help
-                )
+                    help=this_param_help)
             obj_dict['dict_callable_args_to_parser_args'][param.name] = \
                 param.name
         
