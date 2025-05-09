@@ -14,7 +14,7 @@ which eliminates the need for manually maintaining the parser and the definition
 ## Preparation
 
 Inside the `argkit` package, 
-it uses the `inspect` module to analysis the callable.
+it uses the `inspect` module to analyze the callable.
 
 To use `argkit`, in the definition the callable,
 each argument should either
