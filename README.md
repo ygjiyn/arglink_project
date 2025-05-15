@@ -27,7 +27,7 @@ Only POSITIONAL_OR_KEYWORD parameters are supported,
 and there should be no `*`, `/`, `*args`, `**kwargs` in the definition.
 
 Users should use `attach_argkit_meta_info` to decorate the callable
-by passing `obj_dict` and `skip_first`.
+by passing `obj_dict`, `skip_first`, `auto_skip`.
 See the end of this documentation for an example.
 
 The `obj_dict` is a place to
@@ -40,6 +40,11 @@ If the callable is a method in a class (e.g., the `__init__` method),
 or a class method (e.g., those decorated by `@classmethod`), 
 setting the `skip_first` option to `True` 
 to skip the first argument (e.g., `self`, `cls`).
+
+Set `auto_skip` to `True` to skip unanalyzable parameters such that
+- no default values or default values are `None`s, and no type annotation, 
+- or type is not in (int, float, bool, str)
+instead of raising errors.
 
 Users could include following items in the `obj_dict`
 to make further control.
@@ -109,11 +114,13 @@ class TargetClass:
             'var_ignore_1', 
             'var_ignore_2'
         ]
-    }, skip_first=True)
+    }, skip_first=True, auto_skip=True)
     def __init__(
         self,
-        var_ignore_1,
-        var_ignore_2,
+        var_auto_skip_1,
+        var_auto_skip_2:list,
+        var_ignore_1:int,
+        var_ignore_2:int,
         var_1:int,
         var_2:float,
         var_3:str,
@@ -122,7 +129,8 @@ class TargetClass:
         var_c='',
         var_d:int=None,
         var_e=True,
-        var_f=False
+        var_f=False,
+        var_auto_skip_3=None
     ):
         pass
 ```
@@ -146,8 +154,8 @@ parser.print_help()
 Help message:
 
 ```
-usage: argkit_example.py [-h] --var-1 INT --var-2 FLOAT --var-3 STR [--var-a INT] [--var-b FLOAT] [--var-c STR] [--var-d INT] [--var-e-store-false]
-                         [--var-f-store-true]
+usage: argkit_example.py [-h] --var-1 INT --var-2 FLOAT --var-3 STR [--var-a INT] [--var-b FLOAT]
+                         [--var-c STR] [--var-d INT] [--var-e-store-false] [--var-f-store-true]
 
 options:
   -h, --help           show this help message and exit

@@ -5,4 +5,4 @@ from argkit.core import (
     transfer_parser_args_to_callable_kw_dict
 )
 
-__version__ = '0.1.4'
+__version__ = '0.1.5'

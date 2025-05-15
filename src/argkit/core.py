@@ -2,7 +2,7 @@ import inspect
 import argparse
 
 
-def attach_argkit_meta_info(obj_dict: dict, skip_first: bool):
+def attach_argkit_meta_info(obj_dict: dict, skip_first: bool, auto_skip: bool):
     '''\
     ## Add attributes of meta information to a callable object
 
@@ -23,14 +23,22 @@ def attach_argkit_meta_info(obj_dict: dict, skip_first: bool):
 
     - others
         Required information.
+
         - `skip_first`
             Whether skip the first argument or not.
             If the callable `obj` is a method or a class method of a class,
             set `skip_first` to `True` to skip the first argument (`self` or `cls`).
+        
+        - `auto_skip`
+            Set `auto_skip` to `True` to skip unanalyzable parameters such that
+            - no default values or default values are `None`s, and no type annotation, 
+            - or type is not in (int, float, bool, str)
+            instead of raising errors.
     '''
     def decorator(obj):
         obj._argkit_obj_dict = obj_dict
         obj._argkit_skip_first = skip_first
+        obj._argkit_auto_skip = auto_skip
         return obj
     return decorator
 
@@ -44,6 +52,11 @@ def analyze_callable_args(obj: object):
 
     If the callable `obj` is a method or a class method of a class,
     set `skip_first` to `True` to skip the first argument (`self` or `cls`).
+
+    Set `auto_skip` to `True` to skip unanalyzable parameters such that
+    - no default values or default values are `None`s, and no type annotation,
+    - or type is not in (int, float, bool, str)
+    instead of raising errors.
 
     Keys added to `obj_dict`:
 
@@ -65,6 +78,7 @@ def analyze_callable_args(obj: object):
     """
     obj_dict = obj._argkit_obj_dict
     skip_first = obj._argkit_skip_first
+    auto_skip = obj._argkit_auto_skip
 
     has_help_msgs = 'help_msgs' in obj_dict.keys()
     has_ignore_list = 'ignore_list' in obj_dict.keys()
@@ -93,15 +107,27 @@ def analyze_callable_args(obj: object):
             this_param_type = type(param.default)
             this_param_default_value = param.default
         else:
-            assert param.annotation is not param.empty, \
-                f'The annotation of {param.name} should not be empty.'
-            assert isinstance(param.annotation, type), \
-                f'The annotation of {param.name} should be a type annotation.'
+            try:
+                assert param.annotation is not param.empty, \
+                    f'The annotation of {param.name} should not be empty.'
+                assert isinstance(param.annotation, type), \
+                    f'The annotation of {param.name} should be a type annotation.'
+            except AssertionError:
+                if auto_skip:
+                    continue
+                else:
+                    raise
             this_param_type = param.annotation
             this_param_default_value = None
 
-        assert this_param_type in (int, float, bool, str), \
-            f'Error with {param.name}, only int, float, bool, str are supported.'
+        try:
+            assert this_param_type in (int, float, bool, str), \
+                f'Error with {param.name}, only int, float, bool, str are supported.'
+        except AssertionError:
+            if auto_skip:
+                continue
+            else:
+                raise
         
         this_arg_name = '--' + param.name.replace('_', '-')
 
