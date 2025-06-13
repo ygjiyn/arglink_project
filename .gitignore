@@ -1,5 +1,4 @@
 .venv
 dist
-src/*.egg-info
-src/argkit/__pycache__
-archive
+*.egg-info
+__pycache__
