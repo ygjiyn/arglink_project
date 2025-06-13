@@ -2,13 +2,13 @@ import inspect
 import argparse
 
 
-def attach_argkit_meta_info(obj_dict: dict, skip_first: bool, auto_skip: bool):
+def setup_arglink(obj_dict: dict, skip_first: bool, auto_skip: bool):
     '''\
-    ## Add attributes of meta information to a callable object
+    **Add attributes of meta information to a callable object**
 
     - `obj_dict`
-        For the most simple case, it could be an empty dict `{}`.
-        It contains all optional information used by functions in `argkit`.
+        In the most simple case, it is an empty dict `{}`.
+        It contains all optional information used by functions in `arglink`.
         It could contain the following optional items:
 
         - `help_msgs`
@@ -18,6 +18,7 @@ def attach_argkit_meta_info(obj_dict: dict, skip_first: bool, auto_skip: bool):
 
         - `ignore_list`
             - (optional)
+            - Consider using `auto_skip` first.
             - A list containing arguments in the definition of the callable to be ignored.
             - Usually, it could contain those arguments which needed to be handled manually.
 
@@ -36,16 +37,16 @@ def attach_argkit_meta_info(obj_dict: dict, skip_first: bool, auto_skip: bool):
             instead of raising errors.
     '''
     def decorator(obj):
-        obj._argkit_obj_dict = obj_dict
-        obj._argkit_skip_first = skip_first
-        obj._argkit_auto_skip = auto_skip
+        obj._arglink_obj_dict = obj_dict
+        obj._arglink_skip_first = skip_first
+        obj._arglink_auto_skip = auto_skip
         return obj
     return decorator
 
 
 def analyze_callable_args(obj: object):
     """\
-    ## Analyze the arguments of the definition of a callable
+    **Analyze the arguments of the definition of a callable**
 
     This function will analyze the definition of a callable and 
     add the following two keys to `obj_dict`.
@@ -73,12 +74,10 @@ def analyze_callable_args(obj: object):
             'kwargs': {'name': 'value', ...}
         }
         ```
-    
-    If keys above exists in `obj_dict`, they will be **overwriten**.
     """
-    obj_dict = obj._argkit_obj_dict
-    skip_first = obj._argkit_skip_first
-    auto_skip = obj._argkit_auto_skip
+    obj_dict = obj._arglink_obj_dict
+    skip_first = obj._arglink_skip_first
+    auto_skip = obj._arglink_auto_skip
 
     has_help_msgs = 'help_msgs' in obj_dict.keys()
     has_ignore_list = 'ignore_list' in obj_dict.keys()
@@ -179,27 +178,27 @@ def analyze_callable_args(obj: object):
             this_args_for_add_augment_dict
 
 
-def add_callable_args_to_parser_args(obj: object, parser: argparse.ArgumentParser):
+def callable_args_to_parser_args(obj: object, parser: argparse.ArgumentParser):
     analyze_callable_args(obj)
-    obj_dict = obj._argkit_obj_dict
+    obj_dict = obj._arglink_obj_dict
 
     group = parser.add_argument_group(f'arguments for "{obj.__qualname__}"')
     for v in obj_dict['dict_callable_args_to_args_for_add_augment'].values():
         group.add_argument(*v['args'], **v['kwargs'])
 
 
-def transfer_parser_args_to_callable_kw_dict(args: argparse.Namespace | dict, obj: object):
+def parser_args_to_callable_kw_dict(args: argparse.Namespace | dict, obj: object) -> dict:
     """\
-    ## Get the kw dict for calling the callable from parsed args
+    **Obtain the kw dict for calling the callable from parsed args**
     
     For example:
     ```python
-    callable_kw_dict = transfer_parser_args_to_callable_kw_dict(args, obj, obj_dict, skip_first)
+    callable_kw_dict = parser_args_to_callable_kw_dict(args, obj, obj_dict, skip_first)
     obj(extra_arg_1, extra_arg_2, **callable_kw_dict)
     ```
     """
     analyze_callable_args(obj)
-    obj_dict = obj._argkit_obj_dict
+    obj_dict = obj._arglink_obj_dict
 
     if not isinstance(args, dict):
         args = vars(args)

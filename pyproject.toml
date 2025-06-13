@@ -3,11 +3,11 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "argkit"
+name = "arglink"
 authors = [
   { name="Jiyuan Yang" },
 ]
-description = "Connecting an argument parser and a callable."
+description = "Linking an argument parser and a callable."
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -21,13 +21,8 @@ dependencies = []
 
 dynamic = ["version"]
 
-[project.scripts]
-kit1 = "argkit.cli:transfer_single"
-kit2 = "argkit.cli:transfer_double"
-
 [project.urls]
-Homepage = "https://github.com/ygjiyn/argkit_project"
-Issues = "https://github.com/ygjiyn/argkit_project/issues"
+Homepage = "https://github.com/ygjiyn/arglink_project"
 
 [tool.setuptools.dynamic]
-version = {attr = "argkit.__version__"}
+version = {attr = "arglink.__version__"}
