@@ -26,59 +26,24 @@ Only `int`, `float`, `bool`, and `str` are supported.
 Only POSITIONAL_OR_KEYWORD parameters are supported, 
 and there should be no `*`, `/`, `*args`, `**kwargs` in the definition.
 
-Users should use `setup_arglink` to decorate the callable
-by passing `obj_dict`, `skip_first`, `auto_skip`.
+Users should use `setup_arglink` to decorate the callable.
 See the end of this documentation for an example.
 
-The `obj_dict` is a place to
-store the results of analysis conducted by this package, 
-as well as some user options.
-A minimal `obj_dict` is an empty dict `{}`, 
-this is the case that none of the following options are needed.
-
-If the callable is a method in a class (e.g., the `__init__` method), 
-or a class method (e.g., those decorated by `@classmethod`), 
-setting the `skip_first` option to `True` 
-to skip the first argument (e.g., `self`, `cls`).
-
-Set `auto_skip` to `True` to skip unanalyzable parameters such that
-- no default values or default values are `None`s, and no type annotation, 
-- or type is not in (int, float, bool, str)
-instead of raising errors.
-
-Users could include following items in the `obj_dict`
-to make further control.
-Do not create any of those keys if its corresponding value is empty.
-
-- `help_msgs`
-    - (optional)
+`setup_arglink` accepts two optional parameters.
+- help_messages
     - Help messages for parameters.
-    - A dict whose keys are names of arguments and values are messages.
-
-- `ignore_list`
-    - (optional)
-    - Consider using `auto_skip` first.
-    - A list containing arguments in the definition of the callable to be ignored.
-    - Usually, it could contain those arguments which needed to be handled manually.
-
-Besides, following keys will be added to the `obj_dict` 
-during the analysis of the callable:
-
-- `dict_callable_args_to_parser_args`: 
-    - Keys: names of arguments in the definition of the callable. 
-    - Values: names of attributes in the return value of `parser.parse_args()`,
-    i.e., names of attributes of the `argparse.Namespace` object.
-
-- `dict_callable_args_to_args_for_add_augment`:
-    - Keys: names of arguments in the definition of the callable. 
-    - Values: dicts used for the `parser.add_augment` method, each of which is
-    ```python
-    {
-        'args': ['--arg-name'], 
-        'kwargs': {'name': 'value', ...}
-    }
+    - Keys are names of arguments and values are messages.
+- ignore_patterns
+    - A list containing regular expression patterns.
+    - The arguments matching any of those patterns will be ignored.
+    - This is useful when there are arguments needed to be handled manually.
+    - If ``None`` is passed, the following default pattern list will be used.
+    - Arguments "self", "cls", and any argument ends with "_" will be ignored.
+        
+    ``` python
+        # default pattern list
+        [r'^self$', r'^cls$', r'^.*_$']
     ```
-
 
 ## Usage
 
@@ -88,9 +53,8 @@ The core functions are:
     It only attaches attributes used by this package to the object.
     See the following example for its usage.
 - `analyze_callable_args`: Analyze the arguments of the definition of a callable.
-- `callable_args_to_parser_args`: Add parser arguments 
-    according to the definition of a callable.
-- `parser_args_to_callable_kw_dict`: Get the kw dict for calling the callable from parsed args.
+- `callable_args_to_parser_args`: Add the arguments of a callable to a parser.
+- `parser_args_to_callable_kw_dict`: Get the kwargs dict for calling the callable from parsed arguments.
 
 ## Example
 
@@ -98,34 +62,27 @@ The core functions are:
 from arglink.core import setup_arglink
 
 class TargetClass:
-
-    @setup_arglink(obj_dict={
-        'help_msgs': {
+    @setup_arglink(
+        help_messages={
             'var_1': 'help message for var_1',
             'var_a': 'help message for var_a',
             'var_f': 'help message for var_f'
-        },
-        'ignore_list': [
-            'var_ignore_1', 
-            'var_ignore_2'
-        ]
-    }, skip_first=True, auto_skip=True)
+        }
+    )
     def __init__(
         self,
-        var_auto_skip_1,
-        var_auto_skip_2:list,
-        var_ignore_1:int,
-        var_ignore_2:int,
-        var_1:int,
-        var_2:float,
-        var_3:str,
+        var_to_skip_1_: list,
+        var_to_skip_2_: list,
+        var_1: int,
+        var_2: float,
+        var_3: str,
         var_a=1,
         var_b=1.1,
         var_c='',
-        var_d:int=None,
+        var_d: int = None,
         var_e=True,
         var_f=False,
-        var_auto_skip_3=None
+        var_to_skip_3_=''
     ):
         pass
 ```
@@ -137,19 +94,14 @@ import argparse
 from arglink.core import callable_args_to_parser_args
 
 parser = argparse.ArgumentParser()
-
-callable_args_to_parser_args(
-    obj=TargetClass.__init__, 
-    parser=parser
-)
-
-parser.print_help()
+callable_args_to_parser_args(obj=TargetClass.__init__, parser=parser)
+parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
 ```
 
-Help message:
+The help message looks like:
 
 ```
-usage: arglink_example.py [-h] --var-1 INT --var-2 FLOAT --var-3 STR
+usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
                           [--var-a INT] [--var-b FLOAT] [--var-c STR]
                           [--var-d INT] [--var-e-store-false]
                           [--var-f-store-true]
