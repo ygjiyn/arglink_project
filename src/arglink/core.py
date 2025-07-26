@@ -79,7 +79,7 @@ def setup_arglink[F: Callable[..., Any]](
 
     Parameters
     ----------
-    help_messages : dict[str, str] or None, optional, default None.
+    help_messages : dict[str, str] or None, default None.
         Help messages for parameters.
         Keys are names of arguments and values are messages.
 
