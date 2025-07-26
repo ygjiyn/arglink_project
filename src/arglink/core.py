@@ -79,11 +79,11 @@ def setup_arglink[F: Callable[..., Any]](
 
     Parameters
     ----------
-    help_messages : dict[str, str] or None, default None.
+    help_messages : dict[str, str] or None, optional, default None.
         Help messages for parameters.
         Keys are names of arguments and values are messages.
 
-    ignore_patterns : list[str] or None, default None.
+    ignore_patterns : list[str] or None, optional, default None.
         A list containing regular expression patterns.
         The arguments matching any of those patterns will be ignored.
         This is useful when there are arguments needed to be handled manually.
