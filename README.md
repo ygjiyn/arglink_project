@@ -109,7 +109,7 @@ usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
 options:
   -h, --help           show this help message and exit
 
-arguments for "TargetClass.__init__":
+arguments for "__main__.TargetClass.__init__":
   --var-1 INT          help message for var_1
   --var-2 FLOAT
   --var-3 STR

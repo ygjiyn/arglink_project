@@ -40,7 +40,7 @@ usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
 options:
   -h, --help           show this help message and exit
 <BLANKLINE>
-arguments for "TargetClass.__init__":
+arguments for "__main__.TargetClass.__init__":
   --var-1 INT          help message for var_1
   --var-2 FLOAT
   --var-3 STR
@@ -56,10 +56,10 @@ import inspect
 import re
 
 import argparse
-from typing import Callable, Any, Protocol
+from typing import Callable, Any, Protocol, TypeVar
 
 
-class ArglinkTargetCallable(Protocol):
+class _ArglinkTargetCallable(Protocol):
     _arglink_help_messages: dict[str, str] | None
     _arglink_ignore_patterns: list[str]
     _arglink_callable_args_to_parser_args: dict[str, str]
@@ -67,10 +67,13 @@ class ArglinkTargetCallable(Protocol):
     _arglink_has_been_analyzed: bool
 
 
-def setup_arglink[F: Callable[..., Any]](
+_F = TypeVar('_F', bound=Callable[..., Any])
+
+
+def setup_arglink(
     help_messages: dict[str, str] | None = None, 
     ignore_patterns: list[str] | None = None
-) -> Callable[[F], F]:
+) -> Callable[[_F], _F]:
     """
     Set up "arglink" for a callable.
 
@@ -96,7 +99,7 @@ def setup_arglink[F: Callable[..., Any]](
 
     Returns
     ----------
-    Callable[[F], F] : A decorator.
+    Callable[[_F], _F] : A decorator.
         It attaches attributes used by "arglink" to the callable.
         All those attributes are prefixed by "_arglink".
 
@@ -134,13 +137,13 @@ def setup_arglink[F: Callable[..., Any]](
     return decorator
 
 
-def analyze_callable_args(obj: ArglinkTargetCallable) -> None:
+def analyze_callable_args(obj: _ArglinkTargetCallable) -> None:
     """
     Analyze the arguments of the definition of a callable.
 
     Parameters
     ----------
-    obj : ArglinkTargetCallable.
+    obj : _ArglinkTargetCallable.
         A callable decorated by the decorator returned by ``setup_arglink``.
 
     Returns
@@ -249,7 +252,7 @@ def analyze_callable_args(obj: ArglinkTargetCallable) -> None:
 
 
 def callable_args_to_parser_args(
-    obj: ArglinkTargetCallable, 
+    obj: _ArglinkTargetCallable, 
     parser: argparse.ArgumentParser
 ) -> None:
     """
@@ -257,7 +260,7 @@ def callable_args_to_parser_args(
 
     Parameters
     ----------
-    obj : ArglinkTargetCallable.
+    obj : _ArglinkTargetCallable.
         A callable decorated by the decorator returned by ``setup_arglink``.
     
     parser : argparse.ArgumentParser.
@@ -268,14 +271,16 @@ def callable_args_to_parser_args(
     """
     analyze_callable_args(obj)
 
-    group = parser.add_argument_group(f'arguments for "{obj.__qualname__}"')
+    group = parser.add_argument_group(
+        f'arguments for "{obj.__module__}.{obj.__qualname__}"'
+    )
     for v in obj._arglink_callable_args_to_args_for_add_augment.values():
         group.add_argument(*v['args'], **v['kwargs'])
 
 
 def parser_args_to_callable_kw_dict(
     args: argparse.Namespace | dict[str, int | float | bool | str], 
-    obj: ArglinkTargetCallable
+    obj: _ArglinkTargetCallable
 ) -> dict[str, int | float | bool | str]:
     """
     Get the kwargs dict for calling the callable from parsed arguments.
@@ -285,7 +290,7 @@ def parser_args_to_callable_kw_dict(
     args : argparse.Namespace or dict[str, int | float | bool | str].
         The results of calling ``parser.parse_args``.
     
-    obj : ArglinkTargetCallable.
+    obj : _ArglinkTargetCallable.
         A callable decorated by the decorator returned by ``setup_arglink``.
 
     Returns
