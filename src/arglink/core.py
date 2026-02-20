@@ -5,6 +5,7 @@ Linking an argument parser and a callable.
 
 Examples
 ----------
+>>> import typing
 >>> class TargetClass:
 ...     @setup_arglink(
 ...         help_messages={
@@ -23,7 +24,8 @@ Examples
 ...         var_a=1,
 ...         var_b=1.1,
 ...         var_c='',
-...         var_d: int = None,
+...         var_d1: int | None = None,
+...         var_d2: typing.Optional[int] = None,
 ...         var_e=True,
 ...         var_f=False,
 ...         var_to_skip_3_=''
@@ -34,7 +36,7 @@ Examples
 >>> parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
 usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
                           [--var-a INT] [--var-b FLOAT] [--var-c STR]
-                          [--var-d INT] [--var-e-store-false]
+                          [--var-d1 INT] [--var-d2 INT] [--var-e-store-false]
                           [--var-f-store-true]
 <BLANKLINE>
 options:
@@ -47,7 +49,8 @@ arguments for "__main__.TargetClass.__init__":
   --var-a INT          (default: 1) help message for var_a
   --var-b FLOAT        (default: 1.1)
   --var-c STR          (default: '')
-  --var-d INT          (default: None)
+  --var-d1 INT         (default: None)
+  --var-d2 INT         (default: None)
   --var-e-store-false
   --var-f-store-true   help message for var_f
 """
@@ -56,10 +59,12 @@ import inspect
 import re
 
 import argparse
-from typing import Callable, Any, Protocol, TypeVar
+import typing
+from typing import Callable
+import types
 
 
-class _ArglinkTargetCallable(Protocol):
+class _ArglinkTargetCallable(typing.Protocol):
     _arglink_help_messages: dict[str, str] | None
     _arglink_ignore_patterns: list[str]
     _arglink_callable_args_to_parser_args: dict[str, str]
@@ -67,7 +72,7 @@ class _ArglinkTargetCallable(Protocol):
     _arglink_has_been_analyzed: bool
 
 
-_F = TypeVar('_F', bound=Callable[..., Any])
+_F = typing.TypeVar('_F', bound=Callable[..., typing.Any])
 
 
 def setup_arglink(
@@ -164,89 +169,122 @@ def analyze_callable_args(obj: _ArglinkTargetCallable) -> None:
             (f'Error with {param.name}, '
              'only POSITIONAL_OR_KEYWORD parameters are supported.')
         
-        this_param_has_annotation = param.annotation is not param.empty
-        this_param_has_default = param.default is not param.empty
+        param_has_annotation = param.annotation is not param.empty
+        param_has_default = param.default is not param.empty
         
         # First, extract the type of this parameter
         # If the parameter has an annotation, use the annotation first
-        if this_param_has_annotation:
-            if isinstance(param.annotation, type):
-                this_param_type = param.annotation
-            else:
+        if param_has_annotation:
+            # First, try to infer from the annotation
+            if isinstance(param.annotation, str):
                 raise RuntimeError(
-                    f'The annotation of {param.name} is not supported. '
-                    'The annotation should be an instance of type, such as int, float, etc.')
-        # If no annotation, infer from its default value
-        elif this_param_has_default:
+                    f'Parameter {param.name} in {_get_obj_identifier(obj)} '
+                    'uses a string annotation, which is not supported.'
+                )
+            
+            annotation_origin = typing.get_origin(param.annotation)
+            if annotation_origin is None:
+                # simple case: annotation is a plain type/class
+                param_type = param.annotation
+            else:
+                # Complicated case:
+                # Only allow:
+                # AcceptableType | None
+                # Optional[AcceptableType]
+                # Union[AcceptableType, None]
+                annotation_acceptable = False
+                if annotation_origin in (typing.Union, types.UnionType):
+                    annotation_args = typing.get_args(param.annotation)
+                    non_none = [t for t in annotation_args if t is not type(None)]
+                    if len(non_none) == 1:
+                        param_type = non_none[0]
+                        annotation_acceptable = True
+                if not annotation_acceptable:
+                    raise RuntimeError(
+                        f'Annotation of {param.name} in {_get_obj_identifier(obj)} '
+                        f'({param.annotation}) is not supported.'
+                    )
+        elif param_has_default:
+            # If no annotation, infer from its default value
             # None is not param.empty
             # However, since type(None) is <class 'NoneType'>,
             # which is not in (int, float, bool, str),
             # it will trigger a RuntimeError later
             # if the default value is None and there is no proper annotation
-            this_param_type = type(param.default)
+            param_type = type(param.default)
         else:
             raise RuntimeError(
-                f'Parameter {param.name} should have an annotation or a default value.')
+                f'Parameter {param.name} should have '
+                'either an annotation or a default value.'
+            )
 
-        if this_param_type not in (int, float, bool, str):
+        if param_type not in (int, float, bool, str):
             raise RuntimeError(
-                f'Error with {param.name}, only int, float, bool, str are supported.')
+                'Only int, float, bool, str are supported, but '
+                f'{param.name} in {_get_obj_identifier(obj)} is {param_type}.'
+            )
         
         # Second, extract the default value of this parameter
-        this_param_default_value = param.default if this_param_has_default else None
+        param_default_value = param.default if param_has_default else None
         
-        this_arg_name = '--' + param.name.replace('_', '-')
+        arg_name = '--' + param.name.replace('_', '-')
         if obj._arglink_help_messages:
-            this_param_help = obj._arglink_help_messages.get(param.name, '')
+            param_help = obj._arglink_help_messages.get(param.name, '')
         else:
-            this_param_help = ''
+            param_help = ''
         
-        this_args_for_add_augment_dict = {}
+        args_for_add_augment_dict = {}
 
-        if this_param_type == bool:
-            if this_param_default_value == False or this_param_default_value is None:
-                this_arg_name += '-store-true'
+        if param_type == bool:
+            if param_default_value == False or param_default_value is None:
+                arg_name += '-store-true'
 
-                this_args_for_add_augment_dict['args'] = [this_arg_name]
-                this_args_for_add_augment_dict['kwargs'] = dict(
+                args_for_add_augment_dict['args'] = [arg_name]
+                args_for_add_augment_dict['kwargs'] = dict(
                     action='store_true',
-                    help=this_param_help
+                    help=param_help
                 )
 
                 obj._arglink_callable_args_to_parser_args[param.name] = \
                     param.name + '_store_true'
             else:
-                this_arg_name += '-store-false'
+                arg_name += '-store-false'
 
-                this_args_for_add_augment_dict['args'] = [this_arg_name]
-                this_args_for_add_augment_dict['kwargs'] = dict(
+                args_for_add_augment_dict['args'] = [arg_name]
+                args_for_add_augment_dict['kwargs'] = dict(
                     action='store_false',
-                    help=this_param_help
+                    help=param_help
                 )
 
-                obj._arglink_callable_args_to_parser_args[param.name] = \
-                    param.name + '_store_false'
+                obj._arglink_callable_args_to_parser_args[param.name] = (
+                    param.name 
+                    + '_store_false'
+                )
         else:
-            if this_param_has_default:
-                this_args_for_add_augment_dict['args'] = [this_arg_name]
-                this_args_for_add_augment_dict['kwargs'] = dict(
-                    type=this_param_type, 
-                    default=this_param_default_value,
-                    metavar=this_param_type.__name__.upper(),
-                    help=(f'(default: {repr(this_param_default_value)}) ' + 
-                          this_param_help))
+            if param_has_default:
+                args_for_add_augment_dict['args'] = [arg_name]
+                args_for_add_augment_dict['kwargs'] = dict(
+                    type=param_type, 
+                    default=param_default_value,
+                    metavar=param_type.__name__.upper(),
+                    help=(
+                        f'(default: {repr(param_default_value)}) '
+                        + param_help
+                    )
+                )
             else:
-                this_args_for_add_augment_dict['args'] = [this_arg_name]
-                this_args_for_add_augment_dict['kwargs'] = dict(
-                    type=this_param_type, 
+                args_for_add_augment_dict['args'] = [arg_name]
+                args_for_add_augment_dict['kwargs'] = dict(
+                    type=param_type, 
                     required=True,
-                    metavar=this_param_type.__name__.upper(),
-                    help=this_param_help)
-            obj._arglink_callable_args_to_parser_args[param.name] = \
-                param.name
+                    metavar=param_type.__name__.upper(),
+                    help=param_help
+                )
+            obj._arglink_callable_args_to_parser_args[param.name] = param.name
         
-        obj._arglink_callable_args_to_args_for_add_augment[param.name] = \
-            this_args_for_add_augment_dict
+        obj._arglink_callable_args_to_args_for_add_augment[param.name] = (
+            args_for_add_augment_dict
+        )
     
     obj._arglink_has_been_analyzed = True
 
@@ -271,9 +309,7 @@ def callable_args_to_parser_args(
     """
     analyze_callable_args(obj)
 
-    group = parser.add_argument_group(
-        f'arguments for "{obj.__module__}.{obj.__qualname__}"'
-    )
+    group = parser.add_argument_group(f'arguments for "{_get_obj_identifier(obj)}"')
     for v in obj._arglink_callable_args_to_args_for_add_augment.values():
         group.add_argument(*v['args'], **v['kwargs'])
 
@@ -309,9 +345,18 @@ def parser_args_to_callable_kw_dict(
     if not isinstance(args, dict):
         args = vars(args)
     callable_kw_dict: dict[str, int | float | bool | str] = {}
-    for callable_arg, parser_arg in obj._arglink_callable_args_to_parser_args.items():
+    for callable_arg, parser_arg in (
+        obj
+        ._arglink_callable_args_to_parser_args
+        .items()
+    ):
         callable_kw_dict[callable_arg] = args[parser_arg]
     return callable_kw_dict
+
+
+def _get_obj_identifier(obj: Callable) -> str:
+    return f'{obj.__module__}.{obj.__qualname__}'
+
 
 if __name__ == '__main__':
     import doctest

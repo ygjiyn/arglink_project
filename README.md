@@ -58,57 +58,57 @@ The core functions are:
 
 ## Example
 
-```python
-from arglink.core import setup_arglink
-
-class TargetClass:
-    @setup_arglink(
-        help_messages={
-            'var_1': 'help message for var_1',
-            'var_a': 'help message for var_a',
-            'var_f': 'help message for var_f'
-        }
-    )
-    def __init__(
-        self,
-        var_to_skip_1_: list,
-        var_to_skip_2_: list,
-        var_1: int,
-        var_2: float,
-        var_3: str,
-        var_a=1,
-        var_b=1.1,
-        var_c='',
-        var_d: int = None,
-        var_e=True,
-        var_f=False,
-        var_to_skip_3_=''
-    ):
-        pass
-```
-
-Call `callable_args_to_parser_args`:
+Import methods from `arglink`:
 
 ```python
-import argparse
-from arglink.core import callable_args_to_parser_args
-
-parser = argparse.ArgumentParser()
-callable_args_to_parser_args(obj=TargetClass.__init__, parser=parser)
-parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+from arglink.core import setup_arglink, callable_args_to_parser_args
 ```
 
-The help message looks like:
+Decorate the target callable and prepare the parser:
+
+```python
+>>> import typing
+>>> class TargetClass:
+...     @setup_arglink(
+...         help_messages={
+...             'var_1': 'help message for var_1',
+...             'var_a': 'help message for var_a',
+...             'var_f': 'help message for var_f'
+...         }
+...     )
+...     def __init__(
+...         self,
+...         var_to_skip_1_: list,
+...         var_to_skip_2_: list,
+...         var_1: int,
+...         var_2: float,
+...         var_3: str,
+...         var_a=1,
+...         var_b=1.1,
+...         var_c='',
+...         var_d1: int | None = None,
+...         var_d2: typing.Optional[int] = None,
+...         var_e=True,
+...         var_f=False,
+...         var_to_skip_3_=''
+...     ):
+...         pass
+>>> parser = argparse.ArgumentParser()
+>>> callable_args_to_parser_args(obj=TargetClass.__init__, parser=parser)
+>>> parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+```
+
+The parser looks like:
 
 ```
 usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
                           [--var-a INT] [--var-b FLOAT] [--var-c STR]
-                          [--var-d INT] [--var-e-store-false]
+                          [--var-d1 INT] [--var-d2 INT] [--var-e-store-false]
                           [--var-f-store-true]
-
+<BLANKLINE>
 options:
   -h, --help           show this help message and exit
-
+<BLANKLINE>
 arguments for "__main__.TargetClass.__init__":
   --var-1 INT          help message for var_1
   --var-2 FLOAT
@@ -116,7 +116,8 @@ arguments for "__main__.TargetClass.__init__":
   --var-a INT          (default: 1) help message for var_a
   --var-b FLOAT        (default: 1.1)
   --var-c STR          (default: '')
-  --var-d INT          (default: None)
+  --var-d1 INT         (default: None)
+  --var-d2 INT         (default: None)
   --var-e-store-false
   --var-f-store-true   help message for var_f
 ```
