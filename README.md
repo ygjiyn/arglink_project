@@ -3,18 +3,12 @@
 
 ## Introduction
 
-It is quite common to write a parser according to the definition a callable
-and use this parser to obtain arguments to call this callable.
-
-The `arglink` provides tools for connecting arguments managed by a parser in `argparse` 
-and arguments declared in the definition of a callable, 
-which eliminates the need for manually maintaining the parser and the definition of the callable.
-
+The `arglink` package provides tools that links arguments of a parser and a callable.
+The core functions are:
+- Setup a parser based on arguments of a callable
+- Build a kwargs dict to call the callable using the parsing results
 
 ## Preparation
-
-Inside the `arglink` package, 
-it uses the `inspect` module to analyze the callable.
 
 To use `arglink`, in the definition the callable,
 each argument should either
@@ -22,9 +16,6 @@ each argument should either
 - have a type annotation.
 
 Only `int`, `float`, `bool`, and `str` are supported.
-
-Only POSITIONAL_OR_KEYWORD parameters are supported, 
-and there should be no `*`, `/`, `*args`, `**kwargs` in the definition.
 
 Users should use `setup_arglink` to decorate the callable.
 See the end of this documentation for an example.
@@ -34,27 +25,18 @@ See the end of this documentation for an example.
     - Help messages for parameters.
     - Keys are names of arguments and values are messages.
 - ignore_patterns
-    - A list containing regular expression patterns.
-    - The arguments matching any of those patterns will be ignored.
-    - This is useful when there are arguments needed to be handled manually.
-    - If ``None`` is passed, the following default pattern list will be used.
-    - Arguments "self", "cls", and any argument ends with "_" will be ignored.
-        
-    ``` python
-        # default pattern list
-        [r'^self$', r'^cls$', r'^.*_$']
-    ```
+    - A list of regular expression patterns.
+    - Arguments matching any of those patterns will be ignored.
+    - By default, "self", "cls", and one ends with "_" will be ignored.
 
 ## Usage
 
 The core functions are:
 
-- `setup_arglink`: Use it to add attributes used in this package.
-    It only attaches attributes used by this package to the object.
-    See the following example for its usage.
-- `analyze_callable_args`: Analyze the arguments of the definition of a callable.
+- `setup_arglink`: It attaches attributes required by this package and analyze the callable.
+    See the following example.
 - `callable_args_to_parser_args`: Add the arguments of a callable to a parser.
-- `parser_args_to_callable_kw_dict`: Get the kwargs dict for calling the callable from parsed arguments.
+- `parser_args_to_callable_kw_dict`: Build the kwargs dict for calling the callable from the parsing results.
 
 ## Example
 
@@ -103,8 +85,8 @@ The parser looks like:
 ```
 usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
                           [--var-a INT] [--var-b FLOAT] [--var-c STR]
-                          [--var-d1 INT] [--var-d2 INT] [--var-e-store-false]
-                          [--var-f-store-true]
+                          [--var-d1 INT] [--var-d2 INT] [--var-e-toggle]
+                          [--var-f-toggle]
 <BLANKLINE>
 options:
   -h, --help           show this help message and exit
@@ -118,6 +100,6 @@ arguments for "__main__.TargetClass.__init__":
   --var-c STR          (default: '')
   --var-d1 INT         (default: None)
   --var-d2 INT         (default: None)
-  --var-e-store-false
-  --var-f-store-true   help message for var_f
+  --var-e-toggle       (default: True)
+  --var-f-toggle       (default: False) help message for var_f
 ```

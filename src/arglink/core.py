@@ -36,8 +36,8 @@ Examples
 >>> parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
 usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
                           [--var-a INT] [--var-b FLOAT] [--var-c STR]
-                          [--var-d1 INT] [--var-d2 INT] [--var-e-store-false]
-                          [--var-f-store-true]
+                          [--var-d1 INT] [--var-d2 INT] [--var-e-toggle]
+                          [--var-f-toggle]
 <BLANKLINE>
 options:
   -h, --help           show this help message and exit
@@ -51,8 +51,8 @@ arguments for "__main__.TargetClass.__init__":
   --var-c STR          (default: '')
   --var-d1 INT         (default: None)
   --var-d2 INT         (default: None)
-  --var-e-store-false
-  --var-f-store-true   help message for var_f
+  --var-e-toggle       (default: True)
+  --var-f-toggle       (default: False) help message for var_f
 """
 
 import inspect
@@ -68,8 +68,7 @@ class _ArglinkTargetCallable(typing.Protocol):
     _arglink_help_messages: dict[str, str] | None
     _arglink_ignore_patterns: list[str]
     _arglink_callable_args_to_parser_args: dict[str, str]
-    _arglink_callable_args_to_args_for_add_augment: dict[str, dict]
-    _arglink_has_been_analyzed: bool
+    _arglink_callable_args_to_parser_configs: dict[str, dict]
 
 
 _F = typing.TypeVar('_F', bound=Callable[..., typing.Any])
@@ -107,27 +106,6 @@ def setup_arglink(
     Callable[[_F], _F] : A decorator.
         It attaches attributes used by "arglink" to the callable.
         All those attributes are prefixed by "_arglink".
-
-    Notes
-    ----------
-    About the attributes used by "arglink".
-
-    ``_arglink_callable_args_to_parser_args`` is a dict such that
-
-    - Keys: names of arguments in the definition of the callable. 
-    - Values: names of attributes in the return value of ``parser.parse_args``,
-        i.e., names of attributes of the `argparse.Namespace` object.
-    
-    ``_arglink_callable_args_to_args_for_add_augment`` is a dict such that
-    
-    - Keys: names of arguments in the definition of the callable. 
-    - Values: dicts used for the `parser.add_augment` method, each of which is
-
-    .. code:: python
-        {
-            'args': ['--arg-name'], 
-            'kwargs': {'name': 'value', ...}
-        }
     """
     def decorator(obj):
         obj._arglink_help_messages = help_messages
@@ -136,13 +114,73 @@ def setup_arglink(
         else:
             obj._arglink_ignore_patterns = ignore_patterns
         obj._arglink_callable_args_to_parser_args = {}
-        obj._arglink_callable_args_to_args_for_add_augment = {}
-        obj._arglink_has_been_analyzed = False
+        obj._arglink_callable_args_to_parser_configs = {}
+        _analyze_callable_args(obj)
         return obj
     return decorator
 
 
-def analyze_callable_args(obj: _ArglinkTargetCallable) -> None:
+def callable_args_to_parser_args(
+    obj: _ArglinkTargetCallable, 
+    parser: argparse.ArgumentParser
+) -> None:
+    """
+    Add the arguments of a callable to a parser.
+
+    Parameters
+    ----------
+    obj : _ArglinkTargetCallable.
+        A callable decorated by the decorator returned by ``setup_arglink``.
+    
+    parser : argparse.ArgumentParser.
+
+    Returns
+    ----------
+    None : nothing.
+    """
+    group = parser.add_argument_group(f'arguments for "{_get_obj_identifier(obj)}"')
+    for callable_arg, parser_arg in (
+        obj
+        ._arglink_callable_args_to_parser_args
+        .items()
+    ):
+        parser_flag = _get_parser_flag(parser_arg)
+        parser_config = obj._arglink_callable_args_to_parser_configs[callable_arg]
+        group.add_argument(parser_flag, **parser_config)
+
+
+def parser_args_to_callable_kw_dict(
+    args: argparse.Namespace | dict[str, int | float | bool | str], 
+    obj: _ArglinkTargetCallable
+) -> dict[str, int | float | bool | str]:
+    """
+    Get the kwargs dict for calling the callable from parsed arguments.
+
+    Parameters
+    ----------
+    args : argparse.Namespace or dict[str, int | float | bool | str].
+        The results of calling ``parser.parse_args``.
+    
+    obj : _ArglinkTargetCallable.
+        A callable decorated by the decorator returned by ``setup_arglink``.
+
+    Returns
+    ----------
+    dict[str, int | float | bool | str] : the kwargs dict of the callable.
+    """
+    if not isinstance(args, dict):
+        args = vars(args)
+    callable_kwargs_dict: dict[str, int | float | bool | str] = {}
+    for callable_arg, parser_arg in (
+        obj
+        ._arglink_callable_args_to_parser_args
+        .items()
+    ):
+        callable_kwargs_dict[callable_arg] = args[parser_arg]
+    return callable_kwargs_dict
+
+
+def _analyze_callable_args(obj: _ArglinkTargetCallable) -> None:
     """
     Analyze the arguments of the definition of a callable.
 
@@ -155,9 +193,6 @@ def analyze_callable_args(obj: _ArglinkTargetCallable) -> None:
     ----------
     None : nothing.
     """
-    if obj._arglink_has_been_analyzed:
-        return
-
     sig = inspect.signature(obj)
 
     for param in list(sig.parameters.values()):
@@ -165,14 +200,16 @@ def analyze_callable_args(obj: _ArglinkTargetCallable) -> None:
         if any(re.fullmatch(p, param.name) for p in obj._arglink_ignore_patterns):
             continue
 
-        assert param.kind == param.POSITIONAL_OR_KEYWORD, \
-            (f'Error with {param.name}, '
-             'only POSITIONAL_OR_KEYWORD parameters are supported.')
+        if param.kind != param.POSITIONAL_OR_KEYWORD:
+            raise RuntimeError(
+                f'{param.name} in {_get_obj_identifier(obj)} is invalid, '
+                'only POSITIONAL_OR_KEYWORD parameters are supported.'
+            )
         
         param_has_annotation = param.annotation is not param.empty
         param_has_default = param.default is not param.empty
         
-        # First, extract the type of this parameter
+        # Extract the type of this parameter
         # If the parameter has an annotation, use the annotation first
         if param_has_annotation:
             # First, try to infer from the annotation
@@ -224,46 +261,34 @@ def analyze_callable_args(obj: _ArglinkTargetCallable) -> None:
                 f'{param.name} in {_get_obj_identifier(obj)} is {param_type}.'
             )
         
-        # Second, extract the default value of this parameter
+        # Extract the default value of this parameter
         param_default_value = param.default if param_has_default else None
+        if param_type is bool and param_default_value is None:
+            # For boolean args without default values / ``None``s by default,
+            # set param_default_value to False
+            param_default_value = False
         
-        arg_name = '--' + param.name.replace('_', '-')
+        parser_arg = param.name
+        if param_type is bool:
+            parser_arg += '_toggle'
+        obj._arglink_callable_args_to_parser_args[param.name] = parser_arg
+
         if obj._arglink_help_messages:
             param_help = obj._arglink_help_messages.get(param.name, '')
         else:
             param_help = ''
-        
-        args_for_add_augment_dict = {}
 
-        if param_type == bool:
-            if param_default_value == False or param_default_value is None:
-                arg_name += '-store-true'
-
-                args_for_add_augment_dict['args'] = [arg_name]
-                args_for_add_augment_dict['kwargs'] = dict(
-                    action='store_true',
-                    help=param_help
+        if param_type is bool:
+            parser_config = dict(
+                action='store_false' if param_default_value else 'store_true',
+                help=(
+                    f'(default: {repr(param_default_value)}) '
+                    + param_help
                 )
-
-                obj._arglink_callable_args_to_parser_args[param.name] = \
-                    param.name + '_store_true'
-            else:
-                arg_name += '-store-false'
-
-                args_for_add_augment_dict['args'] = [arg_name]
-                args_for_add_augment_dict['kwargs'] = dict(
-                    action='store_false',
-                    help=param_help
-                )
-
-                obj._arglink_callable_args_to_parser_args[param.name] = (
-                    param.name 
-                    + '_store_false'
-                )
+            )
         else:
             if param_has_default:
-                args_for_add_augment_dict['args'] = [arg_name]
-                args_for_add_augment_dict['kwargs'] = dict(
+                parser_config = dict(
                     type=param_type, 
                     default=param_default_value,
                     metavar=param_type.__name__.upper(),
@@ -273,89 +298,37 @@ def analyze_callable_args(obj: _ArglinkTargetCallable) -> None:
                     )
                 )
             else:
-                args_for_add_augment_dict['args'] = [arg_name]
-                args_for_add_augment_dict['kwargs'] = dict(
+                parser_config = dict(
                     type=param_type, 
                     required=True,
                     metavar=param_type.__name__.upper(),
                     help=param_help
                 )
-            obj._arglink_callable_args_to_parser_args[param.name] = param.name
-        
-        obj._arglink_callable_args_to_args_for_add_augment[param.name] = (
-            args_for_add_augment_dict
-        )
-    
-    obj._arglink_has_been_analyzed = True
-
-
-def callable_args_to_parser_args(
-    obj: _ArglinkTargetCallable, 
-    parser: argparse.ArgumentParser
-) -> None:
-    """
-    Add the arguments of a callable to a parser.
-
-    Parameters
-    ----------
-    obj : _ArglinkTargetCallable.
-        A callable decorated by the decorator returned by ``setup_arglink``.
-    
-    parser : argparse.ArgumentParser.
-
-    Returns
-    ----------
-    None : nothing.
-    """
-    analyze_callable_args(obj)
-
-    group = parser.add_argument_group(f'arguments for "{_get_obj_identifier(obj)}"')
-    for v in obj._arglink_callable_args_to_args_for_add_augment.values():
-        group.add_argument(*v['args'], **v['kwargs'])
-
-
-def parser_args_to_callable_kw_dict(
-    args: argparse.Namespace | dict[str, int | float | bool | str], 
-    obj: _ArglinkTargetCallable
-) -> dict[str, int | float | bool | str]:
-    """
-    Get the kwargs dict for calling the callable from parsed arguments.
-
-    Parameters
-    ----------
-    args : argparse.Namespace or dict[str, int | float | bool | str].
-        The results of calling ``parser.parse_args``.
-    
-    obj : _ArglinkTargetCallable.
-        A callable decorated by the decorator returned by ``setup_arglink``.
-
-    Returns
-    ----------
-    dict[str, int | float | bool | str] : the kwargs dict of the callable.
-
-    Examples
-    ----------
-
-    .. code:: python
-        kwargs = parser_args_to_callable_kw_dict(args, obj)
-        obj(extra_arg_1, extra_arg_2, **kwargs)
-    """
-    analyze_callable_args(obj)
-
-    if not isinstance(args, dict):
-        args = vars(args)
-    callable_kw_dict: dict[str, int | float | bool | str] = {}
-    for callable_arg, parser_arg in (
-        obj
-        ._arglink_callable_args_to_parser_args
-        .items()
-    ):
-        callable_kw_dict[callable_arg] = args[parser_arg]
-    return callable_kw_dict
+        obj._arglink_callable_args_to_parser_configs[param.name] = parser_config
 
 
 def _get_obj_identifier(obj: Callable) -> str:
     return f'{obj.__module__}.{obj.__qualname__}'
+
+
+def _get_parser_flag(parser_arg: str) -> str:
+    """
+    Get corresponding flag in the parser from parser argument.
+
+    Parameters
+    ----------
+    parser_arg : str
+        The key in ``argparse.Namespace``, 
+        corresponding to an argument of a callable.
+        It can include "_"s, but "-"s are not allowed.
+
+    Returns
+    ----------
+    str : the corresponding flag in the parser.
+        It is generated by replacing "_"s with "-"s in ``parser_arg``
+        and adding the prefix "--".
+    """
+    return '--' + parser_arg.replace('_', '-')
 
 
 if __name__ == '__main__':

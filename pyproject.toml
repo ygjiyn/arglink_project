@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "arglink"
 authors = [
-  { name="Jiyuan Yang" },
+    { name="Jiyuan Yang" },
 ]
 description = "Linking an argument parser and a callable."
 readme = "README.md"
