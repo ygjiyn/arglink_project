@@ -32,7 +32,7 @@ Examples
 ...     ):
 ...         pass
 >>> parser = argparse.ArgumentParser()
->>> callable_args_to_parser_args(obj=TargetClass, parser=parser)
+>>> callable_to_parser(obj=TargetClass, parser=parser)
 >>> parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
 usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
                           [--var-a INT] [--var-b FLOAT] [--var-c STR]
@@ -122,7 +122,7 @@ def setup_arglink(
     return decorator
 
 
-def callable_args_to_parser_args(
+def callable_to_parser(
     obj: _ArglinkTargetCallable | Any, 
     parser: argparse.ArgumentParser
 ) -> None:
@@ -153,7 +153,7 @@ def callable_args_to_parser_args(
         group.add_argument(parser_flag, **parser_config)
 
 
-def parser_args_to_callable_kw_dict(
+def parser_to_callable(
     args: argparse.Namespace | dict[str, int | float | bool | str], 
     obj: _ArglinkTargetCallable | Any
 ) -> dict[str, int | float | bool | str]:

@@ -35,8 +35,8 @@ The core functions are:
 
 - `setup_arglink`: It attaches attributes required by this package and analyze the callable.
     See the following example.
-- `callable_args_to_parser_args`: Add the arguments of a callable to a parser.
-- `parser_args_to_callable_kw_dict`: Build the kwargs dict for calling the callable from the parsing results.
+- `callable_to_parser`: Add the arguments of a callable to a parser.
+- `parser_to_callable`: Build the kwargs dict for calling the callable from the parsing results.
 
 If a class is decorated or passed, its `__init__` method will be analyzed. 
 
@@ -45,7 +45,7 @@ If a class is decorated or passed, its `__init__` method will be analyzed.
 Import methods from `arglink`:
 
 ```python
-from arglink.core import setup_arglink, callable_args_to_parser_args
+from arglink import setup_arglink, callable_to_parser
 ```
 
 Decorate the target callable and prepare the parser:
@@ -78,7 +78,7 @@ Decorate the target callable and prepare the parser:
 ...     ):
 ...         pass
 >>> parser = argparse.ArgumentParser()
->>> callable_args_to_parser_args(obj=TargetClass, parser=parser)
+>>> callable_to_parser(obj=TargetClass, parser=parser)
 >>> parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
 ```
 
