@@ -6,14 +6,14 @@ Linking an argument parser and a callable.
 Examples
 ----------
 >>> import typing
->>> class TargetClass:
-...     @setup_arglink(
-...         help_messages={
-...             'var_1': 'help message for var_1',
-...             'var_a': 'help message for var_a',
-...             'var_f': 'help message for var_f'
-...         }
-...     )
+>>> @setup_arglink(
+...     help_messages={
+...         'var_1': 'help message for var_1',
+...         'var_a': 'help message for var_a',
+...         'var_f': 'help message for var_f'
+...     }
+... )
+... class TargetClass:
 ...     def __init__(
 ...         self,
 ...         var_to_skip_1_: list,
@@ -32,7 +32,7 @@ Examples
 ...     ):
 ...         pass
 >>> parser = argparse.ArgumentParser()
->>> callable_args_to_parser_args(obj=TargetClass.__init__, parser=parser)
+>>> callable_args_to_parser_args(obj=TargetClass, parser=parser)
 >>> parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
 usage: ... [-h] --var-1 INT --var-2 FLOAT --var-3 STR
                           [--var-a INT] [--var-b FLOAT] [--var-c STR]
@@ -60,7 +60,7 @@ import re
 
 import argparse
 import typing
-from typing import Callable
+from typing import Callable, Any
 import types
 
 
@@ -71,13 +71,13 @@ class _ArglinkTargetCallable(typing.Protocol):
     _arglink_callable_args_to_parser_configs: dict[str, dict]
 
 
-_F = typing.TypeVar('_F', bound=Callable[..., typing.Any])
+_T = typing.TypeVar('_T')
 
 
 def setup_arglink(
     help_messages: dict[str, str] | None = None, 
     ignore_patterns: list[str] | None = None
-) -> Callable[[_F], _F]:
+) -> Callable[[_T], _T]:
     """
     Set up "arglink" for a callable.
 
@@ -103,11 +103,13 @@ def setup_arglink(
 
     Returns
     ----------
-    Callable[[_F], _F] : A decorator.
+    Callable[[_T], _T] : A decorator.
         It attaches attributes used by "arglink" to the callable.
         All those attributes are prefixed by "_arglink".
+        If it is a class, analyze its ``__init__`` method.
     """
-    def decorator(obj):
+    def decorator(any_obj):
+        obj = _resolve_obj(any_obj)
         obj._arglink_help_messages = help_messages
         if ignore_patterns is None:
             obj._arglink_ignore_patterns = [r'^self$', r'^cls$', r'^.*_$']
@@ -116,12 +118,12 @@ def setup_arglink(
         obj._arglink_callable_args_to_parser_args = {}
         obj._arglink_callable_args_to_parser_configs = {}
         _analyze_callable_args(obj)
-        return obj
+        return any_obj
     return decorator
 
 
 def callable_args_to_parser_args(
-    obj: _ArglinkTargetCallable, 
+    obj: _ArglinkTargetCallable | Any, 
     parser: argparse.ArgumentParser
 ) -> None:
     """
@@ -129,8 +131,9 @@ def callable_args_to_parser_args(
 
     Parameters
     ----------
-    obj : _ArglinkTargetCallable.
+    obj : _ArglinkTargetCallable or Any.
         A callable decorated by the decorator returned by ``setup_arglink``.
+        If it is a class, analyze its ``__init__`` method.
     
     parser : argparse.ArgumentParser.
 
@@ -138,6 +141,7 @@ def callable_args_to_parser_args(
     ----------
     None : nothing.
     """
+    obj: _ArglinkTargetCallable = _resolve_obj(obj)
     group = parser.add_argument_group(f'arguments for "{_get_obj_identifier(obj)}"')
     for callable_arg, parser_arg in (
         obj
@@ -151,7 +155,7 @@ def callable_args_to_parser_args(
 
 def parser_args_to_callable_kw_dict(
     args: argparse.Namespace | dict[str, int | float | bool | str], 
-    obj: _ArglinkTargetCallable
+    obj: _ArglinkTargetCallable | Any
 ) -> dict[str, int | float | bool | str]:
     """
     Get the kwargs dict for calling the callable from parsed arguments.
@@ -161,13 +165,15 @@ def parser_args_to_callable_kw_dict(
     args : argparse.Namespace or dict[str, int | float | bool | str].
         The results of calling ``parser.parse_args``.
     
-    obj : _ArglinkTargetCallable.
+    obj : _ArglinkTargetCallable or Any.
         A callable decorated by the decorator returned by ``setup_arglink``.
+        If it is a class, analyze its ``__init__`` method.
 
     Returns
     ----------
     dict[str, int | float | bool | str] : the kwargs dict of the callable.
     """
+    obj: _ArglinkTargetCallable = _resolve_obj(obj)
     if not isinstance(args, dict):
         args = vars(args)
     callable_kwargs_dict: dict[str, int | float | bool | str] = {}
@@ -329,6 +335,13 @@ def _get_parser_flag(parser_arg: str) -> str:
         and adding the prefix "--".
     """
     return '--' + parser_arg.replace('_', '-')
+
+
+def _resolve_obj(obj: Any) -> Any:
+    if inspect.isclass(obj):
+        return obj.__init__
+    else:
+        return obj
 
 
 if __name__ == '__main__':

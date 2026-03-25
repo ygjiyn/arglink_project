@@ -38,6 +38,8 @@ The core functions are:
 - `callable_args_to_parser_args`: Add the arguments of a callable to a parser.
 - `parser_args_to_callable_kw_dict`: Build the kwargs dict for calling the callable from the parsing results.
 
+If a class is decorated or passed, its `__init__` method will be analyzed. 
+
 ## Example
 
 Import methods from `arglink`:
@@ -50,14 +52,14 @@ Decorate the target callable and prepare the parser:
 
 ```python
 >>> import typing
->>> class TargetClass:
-...     @setup_arglink(
-...         help_messages={
-...             'var_1': 'help message for var_1',
-...             'var_a': 'help message for var_a',
-...             'var_f': 'help message for var_f'
-...         }
-...     )
+>>> @setup_arglink(
+...     help_messages={
+...         'var_1': 'help message for var_1',
+...         'var_a': 'help message for var_a',
+...         'var_f': 'help message for var_f'
+...     }
+... )
+... class TargetClass:
 ...     def __init__(
 ...         self,
 ...         var_to_skip_1_: list,
@@ -76,7 +78,7 @@ Decorate the target callable and prepare the parser:
 ...     ):
 ...         pass
 >>> parser = argparse.ArgumentParser()
->>> callable_args_to_parser_args(obj=TargetClass.__init__, parser=parser)
+>>> callable_args_to_parser_args(obj=TargetClass, parser=parser)
 >>> parser.print_help() # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
 ```
 
